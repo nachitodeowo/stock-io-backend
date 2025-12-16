@@ -1,25 +1,27 @@
-# Usamos Python sobre una versión de Linux (Debian)
-FROM python:3.11-slim
+# Usamos una versión específica (Debian 11 Bullseye) que es compatible con el driver MS SQL
+FROM python:3.11-bullseye
 
-# 1. Instalar herramientas del sistema y el Driver de Microsoft SQL Server
-RUN apt-get update && apt-get install -y curl gnupg2 build-essential unixodbc-dev \
+WORKDIR /app
+
+# 1. Instalar dependencias del sistema y el Driver ODBC 17
+# Nota: Usamos bullseye para asegurar compatibilidad con las llaves de Microsoft
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg2 \
+    unixodbc-dev \
     && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
     && curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql17
 
-# 2. Configurar la carpeta de trabajo
-WORKDIR /app
-
-# 3. Copiar tus archivos al servidor
+# 2. Copiar el resto de los archivos
 COPY . .
 
-# 4. Instalar tus librerías (Django, etc.)
+# 3. Instalar librerías de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Recolectar archivos estáticos (CSS/Imágenes)
+# 4. Recolectar archivos estáticos
 RUN python manage.py collectstatic --no-input
 
-# 6. Comando de inicio: Migrar base de datos y prender el servidor
-# Usamos 'sh -c' para poder ejecutar dos comandos seguidos
+# 5. Comando para arrancar
 CMD sh -c "python manage.py migrate && gunicorn pagina.wsgi:application --bind 0.0.0.0:10000"
